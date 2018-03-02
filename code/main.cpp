@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 #define WINDOW_HEIGHT 480  
 #define WINDOW_WIDTH 640 
@@ -22,7 +23,7 @@
 #define TEXT_BLOCK_WIDTH (TEXT_BLOCK_HEIGHT+1) 
 //plus 1 for spacing between letters
 
-#define NUM_OF_LETTERS 38
+#define NUM_OF_LETTERS 40
 //plus one for a 'space' character
 #define TIME_INTERVAL 250
 
@@ -35,8 +36,8 @@ enum Direction {// forces any Direction type variables to UP,DOWN,L...
 
 struct ColorStruct {
 	int r;
-	int b;
 	int g;
+	int b;
 	
 };
 
@@ -49,7 +50,7 @@ struct SnakeBlock {
 struct TextBlock{
 	int x; //x & y positions
 	int y;
-	int font;
+	int fontSize;
 	char* message;
 };
 
@@ -77,9 +78,10 @@ inline void bot_right_eye(SnakeBlock snakeArr, SDL_Surface* WindowSurface, Uint3
 void intializeText(SDL_Surface* surface);
 void drawText(TextBlock msg, SDL_Surface* WindowSurface,SDL_Surface* alphabetSurface, ColorStruct color);
 
-void centerText(TextBlock* msg){
-	int numOfLetters = sizeof(msg->message);
-	msg->x -= (numOfLetters * (msg->font) * TEXT_BLOCK_WIDTH)/2;
+void centerText(TextBlock* msg)
+{
+	int numOfLetters = strlen(msg->message);
+	msg->x -= (numOfLetters * (msg->fontSize) * TEXT_BLOCK_WIDTH)/2;
 	
 }
  
@@ -89,23 +91,22 @@ int wmain(int argc,char* argv[])
 
 	int DrawBlockSize = BLOCK_SIZE - (2 * DRAW_BLOCK_INCREMENT);//Draws it a little smaller so that program would have outline
 	int gridArr[ARR_COLUMNS][ARR_ROWS] = {};//sets to 0s
-	int prevArr[ARR_COLUMNS][ARR_ROWS] = {};
 	int currentCol = DEFAULT_X_START;
 	int currentRow = DEFAULT_Y_START;
-	int snakeX = DEFAULT_X_START;
-	int snakeY = DEFAULT_Y_START;
 	int mouse_x;
 	int mouse_y;
 	int score = 1;
 	int size = 1;
 	int prevRow = 0;
 	int prevCol = 0;
-	int prevCol2, prevRow2;
-	int prevState = 0;
 	bool counting = false;
 	bool changes = false;
 	bool keyPressed = false;
+	bool die = false;
 	bool menu = true;
+	bool reset = false;
+	bool rulesMenu = false;
+	bool mouseButtonDown = false;
 	int count = 0;
 	int tailCol, tailRow;
 	
@@ -119,7 +120,7 @@ int wmain(int argc,char* argv[])
 	
 	gridArr[randX][randY] = 2;//Initial separate block
 
-	SDL_Window* Window = SDL_CreateWindow("Snake horribly made by dpak:P",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+	SDL_Window* Window = SDL_CreateWindow("Snake made by dpak:P",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
 	SDL_Surface* WindowSurface = SDL_GetWindowSurface(Window);
 	
 	SDL_Surface* alphabetSurface = SDL_CreateRGBSurface(0,TEXT_BLOCK_WIDTH*NUM_OF_LETTERS,TEXT_BLOCK_HEIGHT,32,0,0,0,0);//plus 1 for spacing between letters
@@ -145,20 +146,29 @@ int wmain(int argc,char* argv[])
 			{
 				Running = false;
 			}
+			else if (Event.type == SDL_MOUSEBUTTONUP)
+			{
+				mouseButtonDown = false;
+			}
+			else if (Event.type == SDL_MOUSEBUTTONDOWN)
+			{
+				mouseButtonDown = true;
+			}
 			else if (Event.type == SDL_KEYDOWN)
 			{
 				if(Event.key.keysym.sym == SDLK_ESCAPE)
-					{
-						Running = false;
-					}
-				if(!menu){
+				{
+					Running = false; //If escape is pressed close program
+				}
+				if(!menu)
+				{
 					prevCol = currentCol;
 					prevRow = currentRow;
 					keyPressed = true;
 					
-					if(Event.key.keysym.sym == SDLK_RIGHT && (snakeArr[0].direction != RIGHT))
+					if(Event.key.keysym.sym == SDLK_RIGHT && (snakeArr[0].direction != RIGHT)) //If key is the right direction and the head is not already in the right direction
 					{
-						if (currentCol<(ARR_COLUMNS-1) && ((size == 1) || (snakeArr[1].col != (currentCol + 1)))) //Since its an array index it would be -1
+						if (((size == 1) || (snakeArr[1].col != (currentCol + 1)))) //Since its an array index it would be -1
 						{
 							currentCol++;
 							changes = true;
@@ -167,7 +177,7 @@ int wmain(int argc,char* argv[])
 					}
 					else if(Event.key.keysym.sym == SDLK_LEFT && (snakeArr[0].direction != LEFT))
 					{
-						if(currentCol > 0 && ((size == 1) || (snakeArr[1].col != (currentCol - 1))))
+						if(((size == 1) || (snakeArr[1].col != (currentCol - 1))))
 						{
 							currentCol--;
 							changes = true;
@@ -176,7 +186,7 @@ int wmain(int argc,char* argv[])
 					}
 					else if(Event.key.keysym.sym == SDLK_UP && (snakeArr[0].direction != UP))
 					{
-						if(currentRow > 0 && ((size == 1) || (snakeArr[1].row != (currentRow - 1))))
+						if(((size == 1) || (snakeArr[1].row != (currentRow - 1))))
 						{
 							currentRow--;
 							changes = true;
@@ -185,7 +195,7 @@ int wmain(int argc,char* argv[])
 					}
 					else if(Event.key.keysym.sym == SDLK_DOWN && (snakeArr[0].direction != DOWN))
 					{
-						if((currentRow < (ARR_ROWS-1)) && ((size == 1) || (snakeArr[1].row != (currentRow + 1))))
+						if(((size == 1) || (snakeArr[1].row != (currentRow + 1))))
 						{
 							currentRow++;
 							changes = true;
@@ -196,58 +206,170 @@ int wmain(int argc,char* argv[])
 			}
 		}
 		
-		if(menu){
-
-			SDL_GetMouseState(&mouse_x,&mouse_y);
-			if((3*WINDOW_WIDTH/16 <= (mouse_x)  && (mouse_x) <= ((3*WINDOW_WIDTH/16) + (5*WINDOW_WIDTH/8))) && (5*WINDOW_HEIGHT/14 <= (mouse_y) && (mouse_y) <= ((5*WINDOW_HEIGHT/14) + (WINDOW_HEIGHT/8)))){
-				menu = false;
+		if(menu)
+		{
+			SDL_GetMouseState(&mouse_x,&mouse_y);//gets mouse x and y pos
+			SDL_FillRect(WindowSurface, 0, BlackPixel); //Background
+			ColorStruct menuColor = {255, 0, 0};
+			ColorStruct textColor = {150, 150, 255};
+			
+			if (rulesMenu)
+			{				
+				//For rules title
+				TextBlock menuSign = {WINDOW_WIDTH/2,WINDOW_HEIGHT/24, 15, "Rules"};//x,y,FontSize,String
+				centerText(&menuSign);
+				drawText(menuSign, WindowSurface, alphabetSurface, menuColor);
+				
+				//For rules explanation text
+				TextBlock textSign = {10, 8*WINDOW_HEIGHT/24, 3, "You control a snake and you have "
+					"\nto eat the blue square by going "
+					"\nover it using the arrow keys. If "
+					"\nyou run into yourself or hit the"
+					"\nwalls you lose! You can exit at  "
+					"\nanytime using the escape key."};//x,y,FontSize,String
+				drawText(textSign, WindowSurface, alphabetSurface, textColor);
+				
+				//back button
+				if(mouseButtonDown && (3*WINDOW_WIDTH/16 <= (mouse_x)  && (mouse_x) <= ((3*WINDOW_WIDTH/16) + (5*WINDOW_WIDTH/8))) 
+					&& (WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14 <= (mouse_y) && (mouse_y) <= ((WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14) + (WINDOW_HEIGHT/8))))
+				{
+					rulesMenu = false;
+				}
+				
+				SDL_Rect Temp = {3*WINDOW_WIDTH/16, WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14, 5*WINDOW_WIDTH/8, WINDOW_HEIGHT/8};
+				SDL_FillRect(WindowSurface, &Temp, BluePixel);
+				ColorStruct playColor = {255,255, 0};
+				TextBlock playSign = {WINDOW_WIDTH/2, WINDOW_HEIGHT - (WINDOW_HEIGHT/7) + 5, 10, "back"};
+				centerText(&playSign);
+				drawText(playSign, WindowSurface, alphabetSurface, playColor);
 			}
-			
-			ColorStruct menuColor = {255,0,0};
-			TextBlock menuSign = {WINDOW_WIDTH/8,WINDOW_HEIGHT/12, 20, "SNAKE"};//x,y,,FontSize,String
-			drawText(menuSign, WindowSurface, alphabetSurface, menuColor);
-			
-			SDL_Rect Temp = {3*WINDOW_WIDTH/16, 5*WINDOW_HEIGHT/14, 5*WINDOW_WIDTH/8, WINDOW_HEIGHT/8};
-			SDL_FillRect(WindowSurface, &Temp, BluePixel);
-			
-			ColorStruct playColor = {255,0,255};
-			TextBlock playSign = {WINDOW_WIDTH/2, (21*WINDOW_HEIGHT/56), 10, "PLAY"};
-			centerText(&playSign);
-			drawText(playSign, WindowSurface, alphabetSurface, playColor);
-			
-			
+			else if (die)
+			{
+				//Die title
+				TextBlock menuSign = {WINDOW_WIDTH/2,WINDOW_HEIGHT/24, 10, "You died!"};//x,y,FontSize,String
+				centerText(&menuSign);
+				drawText(menuSign, WindowSurface, alphabetSurface, menuColor);
+				
+				char scoreMsg[20];
+				sprintf(scoreMsg,"Score:%d", score);//takes score Integer and puts it into scoreMsg then scoreMsg equals to "Score: (score)"
+				
+				//Score message
+				menuSign = {WINDOW_WIDTH/2,WINDOW_HEIGHT/2, 10, scoreMsg};//x,y,FontSize,String
+				centerText(&menuSign);
+				drawText(menuSign, WindowSurface, alphabetSurface, menuColor);
+				
+				//back button
+				if(mouseButtonDown && (WINDOW_WIDTH/16 <= (mouse_x)  && (mouse_x) <= ((WINDOW_WIDTH/16) + (7*WINDOW_WIDTH/8))) 
+					&& (WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14 <= (mouse_y) && (mouse_y) <= ((WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14) + (WINDOW_HEIGHT/8))))
+				{
+					die = false;
+					score = 1;
+					size = 1;
+					prevRow = 0;
+					prevCol = 0;
+					count = 0;
+					changes = false;
+					counting = false;
+					currentCol = DEFAULT_X_START;
+					currentRow = DEFAULT_Y_START;
+					
+					
+					for (int i = 0; i < (ARR_COLUMNS * ARR_ROWS); i ++)
+					{
+						snakeArr[ARR_COLUMNS * ARR_ROWS] = {};
+					}
+
+					snakeArr[0] = {DEFAULT_X_START,DEFAULT_Y_START,Direction::UP};//Where snake's head initially starts
+					gridArr[randX][randY] = 0;
+					randX = rand() % (ARR_COLUMNS);
+					randY = rand() % (ARR_ROWS);
+					gridArr[randX][randY] = 2;
+				}
+				
+				SDL_Rect Temp = {WINDOW_WIDTH/16, WINDOW_HEIGHT - 2*WINDOW_HEIGHT/14, 7*WINDOW_WIDTH/8, WINDOW_HEIGHT/8};
+				SDL_FillRect(WindowSurface, &Temp, BluePixel);
+				ColorStruct playColor = {255,255, 0};
+				TextBlock playSign = {WINDOW_WIDTH/2, WINDOW_HEIGHT - (WINDOW_HEIGHT/7) + 5, 10, "main menu"};
+				centerText(&playSign);
+				drawText(playSign, WindowSurface, alphabetSurface, playColor);
+			}
+			else
+			{				
+				//Play button 
+				if(mouseButtonDown && (3*WINDOW_WIDTH/16 <= (mouse_x)  && (mouse_x) <= ((3*WINDOW_WIDTH/16) + (5*WINDOW_WIDTH/8))) 
+					&& (5*WINDOW_HEIGHT/14 <= (mouse_y) && (mouse_y) <= ((5*WINDOW_HEIGHT/14) + (WINDOW_HEIGHT/8))))
+				{
+					menu = false;
+				}
+				//Rules button
+				if(mouseButtonDown && (3*WINDOW_WIDTH/16 <= (mouse_x)  && (mouse_x) <= ((3*WINDOW_WIDTH/16) + (5*WINDOW_WIDTH/8))) 
+					&& (7*WINDOW_HEIGHT/14 <= (mouse_y) && (mouse_y) <= ((7*WINDOW_HEIGHT/14) + (WINDOW_HEIGHT/8))))
+				{
+					rulesMenu = true;
+				}
+				
+				//Makes menu snake text
+				TextBlock menuSign = {WINDOW_WIDTH/2,WINDOW_HEIGHT/12, 20, "SNAKE"};//x,y,FontSize,String 
+				centerText(&menuSign);
+				drawText(menuSign, WindowSurface, alphabetSurface, menuColor);
+				
+				//Makes blue squares for menu
+				SDL_Rect Temp = {3*WINDOW_WIDTH/16, 5*WINDOW_HEIGHT/14, 5*WINDOW_WIDTH/8, WINDOW_HEIGHT/8};
+				SDL_FillRect(WindowSurface, &Temp, BluePixel);
+				Temp = {3*WINDOW_WIDTH/16, 7*WINDOW_HEIGHT/14, 5*WINDOW_WIDTH/8, WINDOW_HEIGHT/8};
+				SDL_FillRect(WindowSurface, &Temp, BluePixel);
+				
+				//Text that overlaps blue squares
+				ColorStruct playColor = {255,255, 0};
+				TextBlock playSign = {WINDOW_WIDTH/2, (21*WINDOW_HEIGHT/56), 10, "PLAY"};
+				centerText(&playSign);
+				drawText(playSign, WindowSurface, alphabetSurface, playColor);
+				TextBlock playSign2 = {WINDOW_WIDTH/2, (29*WINDOW_HEIGHT/56), 10, "RULES"};
+				centerText(&playSign2);
+				drawText(playSign2, WindowSurface, alphabetSurface, playColor);
+			}			
 		}
 		else{
 			currentTime = SDL_GetTicks();
 			
-			if(((currentTime - pastTime) >= TIME_INTERVAL) && (keyPressed== false)){//if 1 second has passed move snake head in direction
-				if((snakeArr[0].direction == UP) && (snakeArr[0].row != 0)){
-					// pastTime = currentTime;
-					prevRow = currentRow;
-					prevCol = currentCol;//is needed for first time run(if there is no keydown event)
-					currentRow--;
-					changes = true;
+			if(((currentTime - pastTime) >= TIME_INTERVAL) && (keyPressed== false))
+			{//if 1 second has passed move snake head in direction
+				if ((snakeArr[0].row < 0) || (snakeArr[0].col > MAX_WIDTH_BLOCKS) 
+					|| (snakeArr[0].col < 0) || (snakeArr[0].row > MAX_HEIGHT_BLOCKS))
+				{
+					die = true;
+					menu = true;
 				}
-				else if((snakeArr[0].direction == RIGHT) && (snakeArr[0].col != MAX_WIDTH_BLOCKS)){
-					// pastTime = currentTime;
-					prevRow = currentRow;
-					prevCol = currentCol;
-					currentCol++;
-					changes = true;
-				}
-				else if((snakeArr[0].direction == LEFT) && (snakeArr[0].col != 0)){
-					// pastTime = currentTime;
-					prevRow = currentRow;
-					prevCol = currentCol;
-					currentCol--;
-					changes = true;
-				}
-				else if((snakeArr[0].direction == DOWN) && (snakeArr[0].row != MAX_HEIGHT_BLOCKS)){
-					// pastTime = currentTime;
-					prevRow = currentRow;
-					prevCol = currentCol;
-					currentRow++;
-					changes = true;
+				else
+				{
+					if((snakeArr[0].direction == UP))
+					{
+						prevRow = currentRow;
+						prevCol = currentCol;//is needed for first time run(if there is no keydown event)
+						currentRow--;
+						changes = true;
+					}
+					else if((snakeArr[0].direction == RIGHT))
+					{
+						prevRow = currentRow;
+						prevCol = currentCol;
+						currentCol++;
+						changes = true;
+					}
+					else if((snakeArr[0].direction == LEFT))
+					{
+						prevRow = currentRow;
+						prevCol = currentCol;
+						currentCol--;
+						changes = true;
+					}
+					else if((snakeArr[0].direction == DOWN))
+					{
+						prevRow = currentRow;
+						prevCol = currentCol;
+						currentRow++;
+						changes = true;
+					}
 				}
 			}
 			
@@ -276,7 +398,8 @@ int wmain(int argc,char* argv[])
 				gridArr[randX][randY] = 2;
 			}
 			
-			if(changes){//if there are any changes, change col and row accordingly
+			if(changes)
+			{//if there are any changes, change col and row accordingly
 				for (int i = size; i>0; i--)//newer blocks row and col become previous blocks rows/col
 				{
 					snakeArr[i].col = snakeArr[(i-1)].col;
@@ -289,6 +412,7 @@ int wmain(int argc,char* argv[])
 			}
 			
 			SDL_FillRect(WindowSurface, 0, BlackPixel); //Background
+			SDL_Rect Temp;
 			
 			for(int x = 0; x < ARR_COLUMNS; x++)//draws the random box
 			{
@@ -296,7 +420,7 @@ int wmain(int argc,char* argv[])
 				{
 					if (gridArr[x][y]==2)
 					{
-						SDL_Rect Temp = {X_BLOCK_DRAW, Y_BLOCK_DRAW, DrawBlockSize, DrawBlockSize};
+						Temp = {X_BLOCK_DRAW, Y_BLOCK_DRAW, DrawBlockSize, DrawBlockSize};
 						SDL_FillRect(WindowSurface, &Temp, BluePixel);
 					}
 				}
@@ -306,8 +430,8 @@ int wmain(int argc,char* argv[])
 			{
 				if((i!=0) && (snakeArr[0].col==snakeArr[i].col) && (snakeArr[0].row==snakeArr[i].row))
 				{
-					//Running = false;
-					printf("poop");
+					die = true;
+					menu = true;
 				}
 
 				SDL_Rect Temp = {(snakeArr[i].col*BLOCK_SIZE)+DRAW_BLOCK_INCREMENT,(snakeArr[i].row*BLOCK_SIZE)+DRAW_BLOCK_INCREMENT, DrawBlockSize, DrawBlockSize};
@@ -342,7 +466,7 @@ int wmain(int argc,char* argv[])
 			
 			sprintf(scoreMsg,"Score:%d", score);//takes score Integer and puts it into scoreMsg then scoreMsg equals to "Score: (score)"
 			
-			TextBlock scoreMessage = {(2*WINDOW_WIDTH/5), 0, WINDOW_WIDTH/200, scoreMsg};//x,y,font size, message
+			TextBlock scoreMessage = {(2*WINDOW_WIDTH/5), 0, WINDOW_WIDTH/200, scoreMsg};//x,y,fontSize size, message
 			ColorStruct scoreColor = {255,0,0};
 			
 			drawText(scoreMessage, WindowSurface, alphabetSurface, scoreColor);
@@ -354,134 +478,196 @@ int wmain(int argc,char* argv[])
 	return 0;
 }
 
-void drawText(TextBlock msg, SDL_Surface* WindowSurface,SDL_Surface* alphabetSurface, ColorStruct color){
+void drawText(TextBlock msg, SDL_Surface* WindowSurface,SDL_Surface* alphabetSurface, ColorStruct color)
+{
 	
 	char currentChar = *msg.message;
+	int currentLine = 0;
+	int currentCol = 0;
 	int index, count = 0;
 	SDL_SetSurfaceColorMod(alphabetSurface, color.r , color.g ,color.b);
 	
-	while(currentChar != '\0'){
-		if((currentChar == 'A') || (currentChar == 'a')){
+	while(currentChar != '\0')
+	{
+		if((currentChar == 'A') || (currentChar == 'a'))
+		{
 			index = 0;
 		}
-		else if((currentChar == 'B') || (currentChar == 'b')){
+		else if((currentChar == 'B') || (currentChar == 'b'))
+		{
 			index = 1;
 		}
-		else if((currentChar == 'C') || (currentChar == 'c')){
+		else if((currentChar == 'C') || (currentChar == 'c'))
+		{
 			index = 2;
 		}
-		else if((currentChar == 'D') || (currentChar == 'd')){
+		else if((currentChar == 'D') || (currentChar == 'd'))
+		{
 			index = 3;
 		}
-		else if((currentChar == 'E') || (currentChar == 'e')){
+		else if((currentChar == 'E') || (currentChar == 'e'))
+		{
 			index = 4;
 		}
-		else if((currentChar == 'F') || (currentChar == 'f')){
+		else if((currentChar == 'F') || (currentChar == 'f'))
+		{
 			index = 5;
 		}
-		else if((currentChar == 'G') || (currentChar == 'g')){
+		else if((currentChar == 'G') || (currentChar == 'g'))
+		{
 			index = 6;
 		}
-		else if((currentChar == 'H') || (currentChar == 'h')){
+		else if((currentChar == 'H') || (currentChar == 'h'))
+		{
 			index = 7;
 		}
-		else if((currentChar == 'I') || (currentChar == 'i')){
+		else if((currentChar == 'I') || (currentChar == 'i'))
+		{
 			index = 8;
 		}
-		else if((currentChar == 'J') || (currentChar == 'j')){
+		else if((currentChar == 'J') || (currentChar == 'j'))
+		{
 			index = 9;
 		}
-		else if((currentChar == 'K') || (currentChar == 'k')){
+		else if((currentChar == 'K') || (currentChar == 'k'))
+		{
 			index = 10;
 		}
-		else if((currentChar == 'L') || (currentChar == 'l')){
+		else if((currentChar == 'L') || (currentChar == 'l'))
+		{
 			index = 11;
 		}
-		else if((currentChar == 'M') || (currentChar == 'm')){
+		else if((currentChar == 'M') || (currentChar == 'm'))
+		{
 			index = 12;
 		}
-		else if((currentChar == 'N') || (currentChar == 'n')){
+		else if((currentChar == 'N') || (currentChar == 'n'))
+		{
 			index = 13;
 		}
-		else if((currentChar == 'O') || (currentChar == 'o')){
+		else if((currentChar == 'O') || (currentChar == 'o'))
+		{
 			index = 14;
 		}
-		else if((currentChar == 'P') || (currentChar == 'p')){
+		else if((currentChar == 'P') || (currentChar == 'p'))
+		{
 			index = 15;
 		}
-		else if((currentChar == 'Q') || (currentChar == 'q')){
+		else if((currentChar == 'Q') || (currentChar == 'q'))
+		{
 			index = 16;
 		}
-		else if((currentChar == 'R') || (currentChar == 'r')){
+		else if((currentChar == 'R') || (currentChar == 'r'))
+		{
 			index = 17;
 		}
-		else if((currentChar == 'S') || (currentChar == 's')){
+		else if((currentChar == 'S') || (currentChar == 's'))
+		{
 			index = 18;
 		}
-		else if((currentChar == 'T') || (currentChar == 't')){
+		else if((currentChar == 'T') || (currentChar == 't'))
+		{
 			index = 19;
 		}
-		else if((currentChar == 'U') || (currentChar == 'u')){
+		else if((currentChar == 'U') || (currentChar == 'u'))
+		{
 			index = 20;
 		}
-		else if((currentChar == 'V') || (currentChar == 'v')){
+		else if((currentChar == 'V') || (currentChar == 'v'))
+		{
 			index = 21;
 		}
-		else if((currentChar == 'W') || (currentChar == 'w')){
+		else if((currentChar == 'W') || (currentChar == 'w'))
+		{
 			index = 22;
 		}
-		else if((currentChar == 'X') || (currentChar == 'x')){
+		else if((currentChar == 'X') || (currentChar == 'x'))
+		{
 			index = 23;
 		}
-		else if((currentChar == 'Y') || (currentChar == 'y')){
+		else if((currentChar == 'Y') || (currentChar == 'y'))
+		{
 			index = 24;
 		}
-		else if((currentChar == 'Z') || (currentChar == 'z')){
+		else if((currentChar == 'Z') || (currentChar == 'z'))
+		{
 			index = 25;
 		}
-		else if((currentChar == '1')){
+		else if(currentChar == '1')
+		{
 			index = 26;
 		}
-		else if((currentChar == '2')){
+		else if(currentChar == '2')
+		{
 			index = 27;
 		}
-		else if((currentChar == '3')){
+		else if(currentChar == '3')
+		{
 			index = 28;
 		}
-		else if((currentChar == '4')){
+		else if(currentChar == '4')
+		{
 			index = 29;
 		}
-		else if((currentChar == '5')){
+		else if(currentChar == '5')
+		{
 			index = 30;
 		}
-		else if((currentChar == '6')){
+		else if(currentChar == '6')
+		{
 			index = 31;
 		}
-		else if((currentChar == '7')){
+		else if(currentChar == '7')
+		{
 			index = 32;
 		}
-		else if((currentChar == '8')){
+		else if(currentChar == '8')
+		{
 			index = 33;
 		}
-		else if((currentChar == '9')){
+		else if(currentChar == '9')
+		{
 			index = 34;
 		}
-		else if((currentChar == '0')){
+		else if(currentChar == '0')
+		{
 			index = 35;
 		}
-		else if((currentChar == ':')){
+		else if(currentChar == ':')
+		{
 			index = 36;
+		}
+		else if(currentChar == '!')
+		{
+			index = 38;
+		}
+		else if(currentChar == '.')
+		{
+			index = 39;
+		}
+		else if(currentChar == '\n')
+		{
+			currentLine ++;
+			currentCol = 0;
+			index = -1;
 		}
 		else{//for ' '
 			index = 37;
 		}
 		
-		int currentChar_x = (TEXT_BLOCK_WIDTH * count * msg.font) + msg.x;
-		int currentChar_y = msg.y;
 		
-		SDL_Rect alphaRect = {index*TEXT_BLOCK_WIDTH,0,(TEXT_BLOCK_WIDTH),TEXT_BLOCK_HEIGHT};//x,y,w,h
-		SDL_Rect surfaceRect = {currentChar_x, currentChar_y, (msg.font * TEXT_BLOCK_WIDTH), (msg.font * TEXT_BLOCK_HEIGHT)};
-		SDL_BlitScaled(alphabetSurface, &alphaRect, WindowSurface, &surfaceRect);//Blitting Letters to WindowSurface
+		
+		int currentChar_x = (TEXT_BLOCK_WIDTH * currentCol * msg.fontSize) + msg.x;
+		int currentChar_y = (TEXT_BLOCK_HEIGHT * currentLine * msg.fontSize * 1.5) + msg.y;
+		
+		if (index != -1)
+		{
+			SDL_Rect alphaRect = {index*TEXT_BLOCK_WIDTH,0,(TEXT_BLOCK_WIDTH),TEXT_BLOCK_HEIGHT};//x,y,w,h
+			SDL_Rect surfaceRect = {currentChar_x, currentChar_y, (msg.fontSize * TEXT_BLOCK_WIDTH), (msg.fontSize * TEXT_BLOCK_HEIGHT)};
+			SDL_BlitScaled(alphabetSurface, &alphaRect, WindowSurface, &surfaceRect);//Blitting Letters to WindowSurface
+			
+			currentCol++;
+		}
 		
 		count++;
 		currentChar = *(msg.message + count);// address of msg (move one char forward) + count
@@ -905,15 +1091,34 @@ void intializeText(SDL_Surface* surface)
 	surfaceArr[(TEXT_BLOCK_WIDTH*36)][1] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*36)+1][1] = 1;
 	surfaceArr[(TEXT_BLOCK_WIDTH*36)][3] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*36)+1][3] = 1;
 	
+	//||
+	//||
+	//||
+	//
+	//||
+	surfaceArr[(TEXT_BLOCK_WIDTH*38)][0] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*38)+1][0] = 1;
+	surfaceArr[(TEXT_BLOCK_WIDTH*38)][1] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*38)+1][1] = 1;
+	surfaceArr[(TEXT_BLOCK_WIDTH*38)][2] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*38)+1][2] = 1;
+	surfaceArr[(TEXT_BLOCK_WIDTH*38)][4] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*38)+1][4] = 1;
+	
+	//
+	//
+	//
+	//
+	//||
+	surfaceArr[(TEXT_BLOCK_WIDTH*39)][4] = 1;surfaceArr[(TEXT_BLOCK_WIDTH*39)+1][4] = 1;
+	
 	for(int x = 0; x<(TEXT_BLOCK_WIDTH*NUM_OF_LETTERS); x++)//draws each coloured or transparent block
 	{
 		for(int y = 0; y<(TEXT_BLOCK_HEIGHT*NUM_OF_LETTERS); y++)
 		{
-			if(surfaceArr[x][y]==1){
+			if(surfaceArr[x][y]==1)
+			{
 				SDL_Rect Temp = {x,y,1,1};
 				SDL_FillRect(surface, &Temp, WhitePixel);
 			}
-			else if(surfaceArr[x][y]==0){
+			else if(surfaceArr[x][y]==0)
+			{
 				SDL_Rect Temp = {x,y,1,1};
 				SDL_FillRect(surface, &Temp, TransparentPixel);
 			}
